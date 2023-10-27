@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  elasticsearch:
+    image: elasticsearch:8.10.2
+    container_name: yjyoon-elasticsearch
+    environment:
+      node.name: yjyoon-elasticsearch # 제안하는 형식
+      cluster.initial_master_nodes: "yjyoon-elasticsearch"
+      bootstrap.memory_lock: "true"
+      xpack.ml.enabled: "false"
+      http.compression: "true"
+      xpack.security.enabled: "false"
+      path.data: /usr/share/elasticsearch/data
+      path.logs: /usr/share/elasticsearch/logs
+      ES_JAVA_OPTS: -Xms4g -Xmx4g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./es:/user/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
