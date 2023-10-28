@@ -2,10 +2,19 @@
   "name": "node-elasticsearch",
   "version": "1.0.0",
   "description": "node 에서 elasticsearch 를 사용하는 예시코드를 작성합니다.",
-  "main": "index.js",
+  "main": "app.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.8.9",
+    "express": "^4.18.2",
+    "typescript": "^5.2.2"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1"
+  }
 }

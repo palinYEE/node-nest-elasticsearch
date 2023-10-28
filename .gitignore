@@ -1,3 +1,4 @@
 es/
 nest-elasticsearch/node_modules
 node-elasticsearch/node_modules
+node-elasticsearch/bin
