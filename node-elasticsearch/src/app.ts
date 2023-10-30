@@ -1,8 +1,19 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { Client } from '@elastic/elasticsearch'
 import { AggregationsAggregate, SearchHit, SearchRequest, SearchResponse } from '@elastic/elasticsearch/lib/api/types';
 const app = express();
 const port = 5678;
+
+function checkElasticsearchIndexInBody(req: Request, res: Response, next: NextFunction) {
+    const indexName = req.body.index;
+    if(!indexName) {
+        res.status(400);
+        res.send({
+            message: "엘라스틱서치에 생성할 인덱스 이름을 작성해주세요.",
+        });
+    }
+    next();
+}
 
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
@@ -38,11 +49,7 @@ app.listen(port, function() {
     console.log(`host connection port ${port}`);
 });
 
-app.get('/', (req, res) => {
-    res.send({
-        "message": "Welcome to Elasticsearch API Tutorial in NodeJS",
-    });
-});
+
 
 /**
  * 엘라스틱서치의 인덱스 생성해주는 API 입니다. 해당 API를 사용하는데 필요한 body 형식은 아래와 같습니다. 
@@ -59,14 +66,8 @@ app.get('/', (req, res) => {
  *          - { message: `입력하신 "${indexName}"은 이미 존재하는 인덱스 입니다.` } // 이미 존재하는 index 이름일 경우
  *          - { message: (error as Error).message } // 기타 에러
  */
-app.post('/es/create/index', async (req: Request, res: Response) => {
+app.post('/es/create/index', checkElasticsearchIndexInBody, async (req: Request, res: Response) => {
     const indexName = req.body.index;
-    if(!indexName) {
-        res.status(400);
-        res.send({
-            message: "엘라스틱서치에 생성할 인덱스 이름을 작성해주세요.",
-        });
-    }
     try {
         const checkIndexExist = await client.indices.exists({index: indexName});
         if(!checkIndexExist) {
@@ -105,15 +106,9 @@ app.post('/es/create/index', async (req: Request, res: Response) => {
  *          - { message: "삽입할 데이터를 작성해주세요." } // data 필드에 데이터가 없을 경우
  *          - { message: (error as Error).message } // 기타 에러
  */
-app.post('/es/insert/data', async (req: Request, res: Response) => {
-    const indexName = req.body.index;
-    if(!indexName) {
-        res.status(400);
-        res.send({
-            message: `인덱스 이름을 입력해주세요.`,
-        });
-    }
+app.post('/es/insert/data', checkElasticsearchIndexInBody, async (req: Request, res: Response) => {
     const insertData = req.body.data;
+    const indexName = req.body.index;
     if(!insertData || JSON.stringify(insertData) === '{}') {
         res.status(400);
         res.send({
@@ -149,14 +144,8 @@ app.post('/es/insert/data', async (req: Request, res: Response) => {
  *          - { message: `입력하신 "${indexName}"은 이미 존재하는 인덱스 입니다.` } // 이미 존재하는 index 이름일 경우
  *          - { message: (error as Error).message } // 기타 에러
  */
-app.get('/es/get/data', async (req: Request, res: Response) => {
+app.get('/es/get/data', checkElasticsearchIndexInBody, async (req: Request, res: Response) => {
     const indexName = req.body.index;
-    if(!indexName) {
-        res.status(400);
-        res.send({
-            message: `인덱스 이름을 입력해주세요.`,
-        });
-    }
     const scrollFlag = req.body.scroll;
     const query = req.body.query;
     try {
@@ -211,6 +200,91 @@ app.get('/es/get/data', async (req: Request, res: Response) => {
         res.status(400);
         res.send({
             message: (error as Error).message,
+        });
+    }
+});
+
+/**
+ * 엘라스틱서치 선택한 index 의 id에 해당하는 데이터를 삭제하는 API 입니다. 해당 API를 사용하는데 필요한 body 형식은 아래와 같습니다. 
+ * body: {
+ *      index: string           // 데이터를 겁색할 인덱스 이름
+ *      id: string              // 도큐먼트 id 값
+ * }
+ * response 종류는 아래와 같습니다. 
+ *  - 성공시
+ *      - 200: { message: `${indexName} 인덱스의 ${id} id 삭제 성공하였습니다.`, data: 삭제 결과}
+ *  - 실패시
+ *      - 400:
+ *          - { message: `인덱스 이름을 입력해주세요.` } // index 필드가 누락되었을 경우
+ *          - { message: "삭제할 도큐먼트 id 값을 입력해주세요." } // id 값을 입력하지 않았을 경우
+ *          - { message: (error as Error).message } // 기타 에러
+ */
+app.delete('/es/delete/data', checkElasticsearchIndexInBody, async (req: Request, res:Response) => {
+    const indexName = req.body.index;
+    const id = req.body.id;
+    if(!id) {
+        res.status(400);
+        res.send({
+            message: '삭제할 도큐먼트 id 값을 입력해주세요.'
+        })
+    }
+    try {
+        const deleteResult = await client.delete({id: id, index: indexName});
+        res.send({
+            message: `${indexName} 인덱스의 ${id} id 삭제 성공하였습니다.`,
+            data: deleteResult
+        })
+    } catch (error) {
+        res.status(400);
+        res.send({
+            message: (error as Error).message,
+        });
+    }
+});
+
+/**
+ * 엘라스틱서치 선택한 index 의 id에 해당하는 데이터를 업데이트 하는 API 입니다. 해당 API를 사용하는데 필요한 body 형식은 아래와 같습니다. 
+ * body: {
+ *      index: string           // 데이터를 겁색할 인덱스 이름
+ *      id: string              // 도큐먼트 id 값
+ *      data: object            // 업데이트할 데이터
+ * }
+ * response 종류는 아래와 같습니다. 
+ *  - 성공시
+ *      - 200: { message: `${indexName} 인덱스의 ${id} id 도큐먼트의 데이터 수정 성공하였습니다.`, data: 업데이트 결과}
+ *  - 실패시
+ *      - 400:
+ *          - { message: `인덱스 이름을 입력해주세요.` } // index 필드가 누락되었을 경우
+ *          - { message: "업데이트할 도큐먼트 id 값을 입력해주세요." } // id 값을 입력하지 않았을 경우
+ *          - { message: "업데이트할 데이터를 입력해주세요." } // 데이터를 입력하지 않았을 경우
+ *          - { message: (error as Error).message } // 기타 에러
+ */
+app.post('es/data/update', checkElasticsearchIndexInBody, async (req: Request, res: Response) => {
+    const indexName = req.body.index;
+    const id = req.body.id;
+    const data = req.body.data;
+    if(!id) { 
+        res.status(400);
+        res.send({
+            message: '업데이트할 도큐먼트 id 값을 입력해주세요.'
+        });
+    }
+    if(!data) {
+        res.status(400);
+        res.send({
+            message: '업데이트할 데이터를 입력해주세요.'
+        });
+    }
+    try {
+        const updateResult = await client.update({index: indexName, id: id, doc: data});
+        res.send({
+            message: `${indexName} 인덱스의 ${id} id 도큐먼트의 데이터 수정 성공하였습니다.`,
+            data: updateResult
+        })
+    } catch (error) {
+        res.status(400);
+        res.send({
+            message: (error as Error).message
         });
     }
 })
