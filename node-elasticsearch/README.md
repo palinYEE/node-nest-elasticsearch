@@ -102,6 +102,31 @@
       }));
   }
   ```
+* `Client.delete({index: ${삭제할 데이터가 있는 인덱스 이름}, id: ${삭제할 도큐먼트 id}})`: 데이터를 삭제하는 API
+  ```ts
+  app.delete('/es/delete/data', checkElasticsearchIndexInBody, async (req: Request, res:Response) => {
+    const indexName = req.body.index;
+    const id = req.body.id;
+    if(!id) {
+        res.status(400);
+        res.send({
+            message: '삭제할 도큐먼트 id 값을 입력해주세요.'
+        })
+    }
+    try {
+        const deleteResult = await client.delete({id: id, index: indexName});
+        res.send({
+            message: `${indexName} 인덱스의 ${id} id 삭제 성공하였습니다.`,
+            data: deleteResult
+        })
+    } catch (error) {
+        res.status(400);
+        res.send({
+            message: (error as Error).message,
+        });
+    }
+  });
+  ```
 
 ## 참고 사이트
 
